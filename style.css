@@ -1,0 +1,211 @@
+html {
+	font-family: Verdana, Geneva, Tahoma, sans-serif;
+	font-size: 12px;
+	color: #2c3e50;
+}
+
+body {
+	margin: 0;
+}
+
+:root {
+	--color-success: #2ecc71;
+	--color-primary: #007bff;
+	--color-warn: #f39c12;
+	--color-fail: #e74c3c;
+}
+
+.c-success { color: var(--color-success); }
+.c-primary { color: var(--color-primary); }
+.c-warn { color: var(--color-warn); }
+.c-fail { color: var(--color-fail); }
+.bg-success { background-color: var(--color-success); }
+.bg-primary { background-color: var(--color-primary); }
+.bg-warn { background-color: var(--color-warn); }
+.bg-fail { background-color: var(--color-fail); }
+
+.button, button {
+	background-color: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+    color: #2c3e50;
+    padding: 0.5em 0.5em;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    font-size: 1.2em;
+}
+.b-success { background-color: var(--color-success); color: white; border: 0px; }
+.b-primary { background-color: var(--color-primary); color: white; border: 0px; }
+.b-warn { background-color: var(--color-warn); color: white; border: 0px; }
+.b-fail { background-color: var(--color-fail); color: white; border: 0px; }
+.button:disabled, button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.b-input {
+	background-color: white;
+    border: 0px;
+}
+
+#top {
+	width: 100vw;
+    height: 5vh;
+	display: flex;
+	background-color: #007bff;
+	justify-content: flex-start;
+	align-items: center;
+	margin: 0;
+}
+
+#center {
+	position: relative;
+    width: 100vw;
+    height: 55vh;
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+}
+
+#bottom {
+	position: relative;
+    width: 100vw;
+    height: 40vh;
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+}
+
+#pannels {
+	width: 75vw;
+    height: 40vh;
+    background-color: #f8f8f8;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+#controls {
+	width: 25vw;
+    height: 40vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#preview {
+	display: flex;
+	width: 75vw;
+    height: 100%;
+}
+
+#checklist {
+	display: flex;
+	width: 25vw;
+    height: 100%;
+	flex-direction: column;
+    background-color: #f8f8f8;
+}
+
+.cheklist-item {
+	margin: 4px;
+	font-size: 1.2em;
+	padding-bottom: 0.3em;
+    padding-top: 0.3em;
+}
+
+.panel-number {
+	font-weight: bold;
+	color: #007bff;
+	font-size: 1.2em;
+    border: 3px solid #007bff;
+    border-radius: 50%;
+    padding: 0px;
+	margin: 2px;
+    margin-right: 0.5em;
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+.pannel-name {
+	font-weight: bold;
+	color: #007bff;
+	font-size: 1.2em;
+	height: 50px;
+}
+
+.pannel-body {
+	display: flex;
+	flex-direction: row;
+	height: calc(100% - 50px);
+}
+
+.pannel-text-container {
+	flex: 1;
+    padding-left: 1em;
+	overflow: auto;
+}
+
+.pannel-img-container {
+	flex: 1;
+    position: relative;
+}
+
+.pannel-img {
+	display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    max-height: 100%;
+    max-width: 100%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+}
+
+.path-item {
+	width: 150px;
+    height: 120px;
+    border-radius: 5px;
+    background-color: #ffffff;
+    position: relative;
+    margin: 2px;
+    border: 1px solid #ebebeb;
+    overflow: hidden;
+}
+
+.path-item-header {
+	display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 20px;
+    margin: 1px 5px 1px 5px;
+}
+
+.input-group {
+	display: flex;
+    flex-direction: column;
+    background-color: white;
+	box-shadow: 0px 0px 10px 0px #0000001a;
+    border-radius: 3px;
+    padding: 2px 5px 2px 5px;
+	margin: 5px 1px 5px 1px;
+}
+
+.input-group input {
+	line-height: 2em;
+    border: 0px;
+    font-size: 1.1em;
+	width: 100%;
+}
+
+.input-group input:focus-visible {
+    outline: 0px;
+}
