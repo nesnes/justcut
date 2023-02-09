@@ -2,11 +2,13 @@
 var app = new Vue({
     el: '#app',
     data: {
-        serial: new SerialPort(),
-        serialInFlight: [],
+        machineList: [
+            new Machine_CNC3018()
+        ],
+        machine: null,
         sourceUrl: null,
         sourceImg: null,
-        checklistIdx: 0,
+        checklistIdx: -1,
         checklist: [
             { validated: false, id:"select-file", name:"Select image file" },
             { validated: false, id:"compute-path", name:"Compute tool paths" },
@@ -50,28 +52,27 @@ var app = new Vue({
             stopRunningJob: null,
             stopRunningPath: null
         },
-        cncStatus: {
-            mode:"",
-            x:0,
-            y:0,
-            z:0,
-            offset:{x:0, y:0, z:0},
-            probe: false,
-            probe_offset:{x:0, y:0, z:0}
-        },
-        abortMoveIfProbe: true,
         probing: false,
         milling: false,
 
     },
     methods: {
-        checklistItem: function(){
-            return this.checklist[this.checklistIdx];
+        selectMachine: function(selected){
+            this.machine = selected;
+            this.machine.init();
         },
-        checkListNext: function(){
-            this.checklistItem().validated = true;
-            this.checklistIdx++;
-            if(this.checklistItem().onload) this.checklistItem().onload();
+        selectOperation: function(selected){
+            this.machine.operation = selected;
+            this.machine.operation.index = 0;
+        },
+        currentOperationStep: function(){
+            return this.machine.operation.steps[this.machine.operation.index]
+        },
+        nextOperationStep: function(){
+            this.currentOperationStep().validated = true;
+            this.machine.operation.index++;
+            if(this.currentOperationStep().id == "run-job") setTimeout(app.generateJobThumbnails, 50);
+            //if(this.currentOperationStep().onload) this.currentOperationStep().onload();
         },
         displayImage: function(img, div="previewCanvas"){
             let width = document.getElementById(div).offsetWidth;
@@ -239,131 +240,10 @@ var app = new Vue({
             ones.delete();
             setTimeout(()=>{app.generateJobThumbnails(index+1);}, 10)
         },
-
-        // Machine control
-        serialWrite: function(data){
-            console.log(data)
-            return new Promise((resolve, reject)=>{
-                this.serialInFlight.unshift({resolve,reject});
-                this.serial.write(data);
-            });
-        },
         emergencyStop: function(){
             if(this.probing) this.probing = false;
             this.pauseJob();
-            return this.abortMove().then(this.stopSpindle);
-        },
-        abortMove: function(){
-            return this.serialWrite(String.fromCharCode(0x85))
-        },
-        updateCNCStatus: function(){
-            return this.serialWrite("?");
-        },
-        onSerialRead: function(msg){
-            console.log(msg)
-            if(msg.startsWith('<')) this.parseCNCStatus(msg);
-            if(msg.startsWith("[PRB:")) this.parseCNCSProbe(msg);
-            if(msg.startsWith("ok") || msg.startsWith("err")) {
-                setTimeout(()=>{
-                  if(this.serialInFlight.length) {
-                    let task = this.serialInFlight[0];
-                    this.serialInFlight.splice(0,1);
-                    if(msg.startsWith("ok")) task.resolve();
-                    else task.reject();
-                  }
-                },0);
-              }
-        },
-        parseCNCStatus: function(status){
-          // Reset some values
-          this.cncStatus.probe = false;
-          // Parse status
-          status = status.replace("<", "");
-          status = status.replace(">", "");
-          let statusTab = status.split("|");
-          if(statusTab[0]) this.cncStatus.mode = statusTab[0];
-          for(let elem of statusTab){
-            // Spindle position
-            if(elem.startsWith("MPos:")) {
-              elem = elem.replace("MPos:","");
-              let posTab = elem.split(",");
-              if(posTab.length == 3){
-                this.cncStatus.x = parseFloat(posTab[0]);
-                this.cncStatus.y = parseFloat(posTab[1]);
-                this.cncStatus.z = parseFloat(posTab[2]);
-              }
-            }
-            // Probe status
-            else if(elem.startsWith("Pn:P")) {
-              this.cncStatus.probe = true;
-              if(this.abortMoveIfProbe) this.emergencyStop();
-            }
-          }
-        },
-        parseCNCSProbe: function(data){
-            data = data.replace("[PRB:","");
-            let posTab = data.split(",");
-            if(posTab.length == 3){
-              this.cncStatus.probe_offset.x = parseFloat(posTab[0]);
-              this.cncStatus.probe_offset.y = parseFloat(posTab[1]);
-              this.cncStatus.probe_offset.z = parseFloat(posTab[2].split(":")[0]);
-            }
-        },
-        moveSpindleStep: function(axis, stepCount, secondAxis=null, secondStepCount=null){
-            this.abortMoveIfProbe = true;
-            if(axis == 'Z' && stepCount>0) this.abortMoveIfProbe = false;
-            let stepSize = 10;
-            let feedRate = 100;
-            let cmd = "$J=G21G91"+axis+(stepCount*stepSize);
-            if(secondAxis && secondStepCount) cmd += secondAxis+(secondStepCount*stepSize);
-            cmd += "F"+feedRate;
-            return this.serialWrite(cmd);
-        },
-        moveSpindleAbsolute: function(positions, feedRate=100, stopOnProbe=true, controlledMove=true){
-            this.abortMoveIfProbe = stopOnProbe;
-            let cmd = `G21 G90`;
-            if(controlledMove) cmd += ' G1';
-            else  cmd += ' G0';
-            if('x' in positions) cmd += ` X${positions.x.toFixed(3)}`
-            if('y' in positions) cmd += ` Y${positions.y.toFixed(3)}`
-            if('z' in positions) cmd += ` Z${positions.z.toFixed(3)}`
-            if(controlledMove) cmd += ` F${feedRate.toFixed(0)}`;
-            return this.serialWrite(cmd);
-        },
-        startSpindle: function(){
-            return this.serialWrite('M3 S10000');
-        },
-        stopSpindle: function(){
-            return this.serialWrite('M5');
-        },
-        setCurrentAsXYHome: function(){
-          this.serialWrite(`G92 X0 Y0 Z0`).then(()=>{
-            this.updateCNCStatus().then(()=>{
-              this.cncStatus.offset.x = this.cncStatus.x;
-              this.cncStatus.offset.y = this.cncStatus.y;
-            })
-          })
-        },
-        probeAxis: function(axis, moveAway=true, feedRate=20) {
-            let maxDist = -20;
-            let cmd = `G21 G38.2 ${axis}${maxDist} F${feedRate}`
-            if(!moveAway){ //Only probe
-              return this.serialWrite(cmd);
-            }
-            else { // probe and move away
-              return new Promise((resolve, reject)=>{
-                this.serialWrite(cmd).then(()=>{
-                  this.serialWrite(`G92 ${axis}0`).then(()=>{
-                    this.updateCNCStatus().then(()=>{
-                      this.cncStatus.offset.z = this.cncStatus.z;
-                      this.moveSpindleAbsolute({z:5}, 1000, false).then(()=>{
-                        resolve();
-                      }).catch(()=>{reject();})
-                    }).catch(()=>{reject();})
-                  }).catch(()=>{reject();})
-                }).catch(()=>{reject();})
-              });
-            }
+            return this.machine.abortMove().then(this.machine.stopSpindle);
         },
         probeSurface: async function(width=-1, height=-1, stepx=0, stepy=0){
             if(this.probing) return;
@@ -373,20 +253,20 @@ var app = new Vue({
             if(stepx==0) stepx = 10;//width/5, 10); //mm
             if(stepy==0) stepy = 10;//Math.min(height/5, 10); //mm
             this.pcb.surface.length = 0;
-            await this.moveSpindleAbsolute({x:0, y:0}, 1000);
-            await this.probeAxis('Z', true, 20);
+            await this.machine.moveSpindleAbsolute({x:0, y:0}, 1000);
+            await this.machine.probe('Z', true, 20);
             for(let x=0;x<=width;x+=stepx){
               for(let y=0;y<=height;y+=stepy){
                 if(!this.probing) return;
-                await this.moveSpindleAbsolute({z:1}, 1000, false);
+                await this.machine.moveSpindleAbsolute({z:1}, 1000, false);
                 if(!this.probing) return;
-                await this.moveSpindleAbsolute({x, y}, 1000);
+                await this.machine.moveSpindleAbsolute({x, y}, 1000);
                 if(!this.probing) return;
-                await this.probeAxis('Z', false, 20);
-                this.pcb.surface.push({x, y, z: this.cncStatus.probe_offset.z - this.cncStatus.offset.z })
+                await this.machine.probe('Z', false, 20);
+                this.pcb.surface.push({x, y, z: this.machine.status.probe_offset.z - this.machine.status.offset.z })
               } 
             }
-            await this.moveSpindleAbsolute({z:5}, 500, false);
+            await this.machine.moveSpindleAbsolute({z:5}, 500, false);
             this.probing = false;
         },
         compute2DDist: function(a,b){
@@ -434,24 +314,24 @@ var app = new Vue({
                 if(startFromBegining || path.status == "done" || path.currentIndex >= path.points.length) path.currentIndex = 0;
                 let entryPoint = path.points[path.currentIndex];
                 path.status = "running";
-                if(isRunning) await this.moveSpindleAbsolute({z:3}, 1000, false);
-                if(isRunning) await this.moveSpindleAbsolute({
+                if(isRunning) await this.machine.moveSpindleAbsolute({z:3}, 1000, false);
+                if(isRunning) await this.machine.moveSpindleAbsolute({
                     x: entryPoint.x / this.job.pixelsPerMillimeters,
                     y: entryPoint.y / this.job.pixelsPerMillimeters
                 }, 1000, false);
-                if(isRunning) await this.startSpindle();
+                if(isRunning) await this.machine.startSpindle();
                 for(path.currentIndex; path.currentIndex < path.points.length; path.currentIndex++)
                 {
                     let point = path.points[path.currentIndex];
                     let x = point.x / this.job.pixelsPerMillimeters;
                     let y = point.y / this.job.pixelsPerMillimeters;
                     let z = -this.job.cravingDepth + this.getGridOffset(x, y);
-                    if(isRunning) await this.moveSpindleAbsolute({x, y, z}, this.job.feedrate);
+                    if(isRunning) await this.machine.moveSpindleAbsolute({x, y, z}, this.job.feedrate);
                     if(!isRunning) break; // should not use else to avoid currentIdex increment on fail
                 }
                 if(stopSpindleAtEnd) {
-                    await this.stopSpindle();
-                    if(isRunning) await this.moveSpindleAbsolute({z:3}, 1000, false);
+                    await this.machine.stopSpindle();
+                    if(isRunning) await this.machine.moveSpindleAbsolute({z:3}, 1000, false);
                 }
                 if(isRunning) path.status = "done";
                 if(isRunning) resolve();
@@ -472,16 +352,16 @@ var app = new Vue({
                     }
                     else {
                         // Stop spindle and home
-                        await this.moveSpindleAbsolute({z:3}, 1000, false);
-                        await this.stopSpindle();
-                        await this.moveSpindleAbsolute({x:0, y:0}, 1000, false);
+                        await this.machine.moveSpindleAbsolute({z:3}, 1000, false);
+                        await this.machine.stopSpindle();
+                        await this.machine.moveSpindleAbsolute({x:0, y:0}, 1000, false);
                         this.job.stopRunningJob = null;
                         resolve();
                     }
                 }).catch(async ()=>{
-                    await this.abortMove();
-                    await this.stopSpindle();
-                    await this.moveSpindleAbsolute({z:3}, 1000, false);
+                    await this.machine.abortMove();
+                    await this.machine.stopSpindle();
+                    await this.machine.moveSpindleAbsolute({z:3}, 1000, false);
                     this.job.stopRunningJob = null;
                     reject();
                 });
@@ -499,5 +379,7 @@ var app = new Vue({
 
     }
 })
-app.serial.readHandler = app.onSerialRead;
+//app.serial.readHandler = app.onSerialRead;
+//app.machine = new Machine_CNC3018()
+//app.machine.init();
 window.app = app;

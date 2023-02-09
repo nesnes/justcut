@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<meta charset="utf-8">
-		<title>CNCNes</title>
+		<title>JustCut</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<link rel="stylesheet" href="style.css">
         <link href="lib/fontawesome/css/all.min.css" rel="stylesheet">
@@ -10,10 +10,45 @@
 	</head>
 	<body>
         <div id="app">
-            <header id="top">
-                <img src="images/logo-color.svg"/>
+            <header id="top" style="display: flex; flex-direction: row; justify-content: space-between;">
+                <!--Left-->
+                <div>
+                    <img src="images/logo-color.svg"/>
+                </div>
+                <!--Center-->
+                <div style="color:white; font-size: 1.3em; font-weight: bold;">
+                    <span v-if="machine">{{machine.name}}</span>
+                    <span v-if="machine && machine.operation"> - {{machine.operation.name}}</span>
+                </div>
+                <!--Right-->
+                <div>
+
+                </div>
             </header>
-            <div id="center">
+            <div v-if="!machine || !machine.operation" id="full-page">
+                <!-- select-machine -->
+                <span v-if="!machine" class="pannel-name"><span class="panel-number"><i class="fa-solid fa-wrench"></i></span>Select your machine</span>
+                <div  v-if="!machine" class="pannel-body">
+                    <div class="pannel-text-container" style="display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;">
+                        <div v-for="candidate of machineList" class="selection-card" @click="selectMachine(candidate)">
+                            <span style="text-align:center;font-size:1.2em;font-weight:bold;padding:5px;">{{candidate.name}}</span>
+                            <img v-bind:src="candidate.image">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- select-operation -->
+                <span v-if="machine && !machine.operation" class="pannel-name"><span class="panel-number"><i class="fa-solid fa-wrench"></i></span>Select target operation</span>
+                <div  v-if="machine && !machine.operation" class="pannel-body">
+                    <div class="pannel-text-container" style="display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;">
+                        <div v-for="candidate of machine.operationList" class="selection-card" @click="selectOperation(candidate)">
+                            <span style="text-align:center;font-size:1.2em;font-weight:bold;padding:5px;">{{candidate.name}}</span>
+                            <img v-bind:src="candidate.image">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="center" v-if="machine && machine.operation">
                 <!-- Preview -->
                 <div id="preview">
                     <canvas id="previewCanvas" style="width: 100%">
@@ -26,22 +61,22 @@
                 </div>
                 <!-- Checklist -->
                 <div id="checklist">
-                    <div v-for="(item, index) in checklist" class="cheklist-item">
-                        <span class="checklist-item-name">
-                            <i v-if="item.validated && index != checklistIdx" class="fa-solid fa-circle-check c-success"></i>
-                            <i v-if="!item.validated && index != checklistIdx" class="fa-solid fa-circle c-primary"></i>
-                            <i v-if="index == checklistIdx" class="fa-solid fa-circle-right c-primary"></i>
-                            {{item.name}}
-                        </span>
-                    </div>
+                        <div v-for="(item, index) in machine.operation.steps" class="cheklist-item">
+                            <span class="checklist-item-name">
+                                <i v-if="item.validated && index != machine.operation.index" class="fa-solid fa-circle-check c-success"></i>
+                                <i v-if="!item.validated && index != machine.operation.index" class="fa-solid fa-circle c-primary"></i>
+                                <i v-if="index == machine.operation.index" class="fa-solid fa-circle-right c-primary"></i>
+                                {{item.name}}
+                            </span>
+                        </div>
                 </div>
             </div>
-            <div id="bottom">
+            <div id="bottom" v-if="machine && machine.operation">
                 <div id="pannels">
-                    <span class="pannel-name"><span class="panel-number">{{checklistIdx}}</span>{{checklistItem().name}}</span>
-                    
+                    <span class="pannel-name"><span class="panel-number">{{machine.operation.index}}</span>{{currentOperationStep().name}}</span>
+
                     <!-- select-file -->
-                    <div v-if="checklistItem().id == 'select-file'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'select-file'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Open a black-and-white PNG file of your PCB or 2D drawing.
@@ -59,16 +94,16 @@
                                     <span><i class="fa fa-arrows-alt-h mr-1"></i> Distance between red lines (in mm)</span>
                                     <input type="number" min="0.01" v-model.number="job.realWorldWidth" @change="onScaleUpdate()" class="form-control small-input-value" aria-label="Distance between red lines in millimeters (width of the job)" aria-describedby="inputGroup-sizing-default">
                                 </div>
-                                <button @click="onScaleUpdate();checkListNext()" :disabled="job.realWorldWidth==0" class="b-primary">Next</button>
+                                <button @click="onScaleUpdate();nextOperationStep()" :disabled="job.realWorldWidth==0" class="b-primary">Next</button>
                             </div>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- compute-path -->
-                    <div v-if="checklistItem().id == 'compute-path'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'compute-path'" class="pannel-body">
                         <div class="pannel-text-container">
                             <div style="display:flex;flex-direction:row;">
                                 <!--Tool visual-->
@@ -123,57 +158,57 @@
                                     </div>
                                     <div>
                                         <button @click="computeToolpath()" class="b-success">Compute toolpath</button>
-                                        <button :disabled="job.contours.length==0" @click="checkListNext()" class="b-primary">Next</button>
+                                        <button :disabled="job.contours.length==0" @click="nextOperationStep()" class="b-primary">Next</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- install-martyr -->
-                    <div v-if="checklistItem().id == 'install-martyr'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'install-martyr'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Install a wooden plate in the CNC to protect it.
                             </p>
-                            <button @click="checkListNext()" class="b-primary">Next</button>
+                            <button @click="nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018-martyr.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- install-pcb -->
-                    <div v-if="checklistItem().id == 'install-pcb'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'install-pcb'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Use double-sided tape to attach the pcb to the martyr.
                             </p>
-                            <button @click="checkListNext()" class="b-primary">Next</button>
+                            <button @click="nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018-pcb-tape.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- install-tool -->
-                    <div v-if="checklistItem().id == 'install-tool'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'install-tool'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Attach the tool to the machine.
                             </p>
-                            <button @click="checkListNext()" class="b-primary">Next</button>
+                            <button @click="nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018-tool.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- install-probe -->
-                    <div v-if="checklistItem().id == 'install-probe'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'install-probe'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 For the machine to sense the PCB, probing wires should be installed.
@@ -183,80 +218,100 @@
                                 </ul>
                                 The other ends of the wires should connect on the <b>A5</b> pins of the CNC mainboard.
                             </p>
-                            <button @click="checkListNext()" class="b-primary">Next</button>
+                            <button @click="nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018-wires.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- power-on -->
-                    <div v-if="checklistItem().id == 'power-on'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'power-on'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 <b>Switch ON</b> the machine using the <b>push button</b> at the back.
                             </p>
-                            <button @click="checkListNext()" class="b-primary">Next</button>
+                            <button @click="nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018-power-on.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- home-x-y -->
-                    <div v-if="checklistItem().id == 'home-x-y'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'home-x-y'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Use the <b>Manual Control panel</b> on the right to move the tip of the tool above the <b>bottom-left corner</b> of the PCB.
                                 <br/> Make sure the tip of the tool remains <b>above the coper</b> so sensing will be possible.
-                                <span v-if="!serial.connected" style="color:red;font-weight:bold;">Machine is not connected, select a serial port.</span>
+                                <span v-if="!machine.isConnected()" style="color:red;font-weight:bold;">Machine is not connected.</span>
+                                <span v-if="machine.connectionType == 'SERIAL'">Select a serial port.</span>
                             </p>
-                            <button :disabled="!serial.connected" @click="setCurrentAsXYHome(); checkListNext()" class="b-primary">Next</button>
+                            <button :disabled="!machine.isConnected()" @click="machine.setHome({x:1, y:1, z:1}); nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/3018-home.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
+                        </div>
+                    </div>
+
+                    <!-- probe-z -->
+                    <div v-if="currentOperationStep().id == 'probe-z'" class="pannel-body">
+                        <div class="pannel-text-container">
+                            <p>
+                                Probe the PCB height. This required to locate the initial position on the PCB.
+                            </p>
+                            <button :disabled="!machine.isConnected()" @click="machine.probeSurface(0,0,1,1);" class="b-warn">Start Probing</button>
+                            <a v-if="!probing" @click="nextOperationStep()" class="" style="cursor:pointer">Skip</a>
+                        </div>
+                        <div class="pannel-img-container">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- probe-surface -->
-                    <div v-if="checklistItem().id == 'probe-surface'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'probe-surface'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
-                                When milling a PCB, surface height is <b>extremely important.</b>
+                                When milling a PCB, analysing the surface height is <b>extremely important</b> as a PCB is never perfectly flat on the matyr.
+                            </p>
+                            <p>
+                                <br/>As depth of cut is often, very small, this step is required to obtain a reasonable precision.
+                            </p>
+                            <p>
                                 <br/>Use the button bellow to start probing.
                             </p>
-                            <button :disabled="!serial.connected || probing" @click="probeSurface()" class="b-warn">Start surface probe</button>
-                            <a v-if="pcb.surface.length==0 && !probing" @click="checkListNext()" class="" style="cursor:pointer">Skip</a>
-                            <button v-if="pcb.surface.length && !probing" :disabled="probing" @click="checkListNext()" class="b-primary">Next</button>
+                            <button :disabled="!machine.isConnected() || probing" @click="probeSurface()" class="b-warn">Analyse surface</button>
+                            <a v-if="pcb.surface.length==0 && !probing" @click="nextOperationStep()" class="" style="cursor:pointer">Skip</a>
+                            <button v-if="pcb.surface.length && !probing" :disabled="probing" @click="nextOperationStep()" class="b-primary">Next</button>
                             <span v-if="probing">Probing in progress...</span>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/pcb-grid-probe.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- remove-probe -->
-                    <div v-if="checklistItem().id == 'remove-probe'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'remove-probe'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Before starting the milling, <b>remove the wire from the tool</b>.
                             </p>
-                            <button :disabled="!serial.connected" @click="checkListNext()" class="b-primary">Next</button>
+                            <button :disabled="!machine.isConnected()" @click="nextOperationStep()" class="b-primary">Next</button>
                         </div>
                         <div class="pannel-img-container">
-                            <img src="images/pcb-remove-wire.svg" class="pannel-img">
+                            <img v-bind:src="currentOperationStep().image" class="pannel-img">
                         </div>
                     </div>
 
                     <!-- run-job -->
-                    <div v-if="checklistItem().id == 'run-job'" class="pannel-body">
+                    <div v-if="currentOperationStep().id == 'run-job'" class="pannel-body">
                         <div class="pannel-text-container">
                             <p>
                                 Ready to <b>run the job</b>, click the button bellow to start machining.
                             </p>
                             <div style="display: flex;flex-direction:row;justify-content:center;">
-                                <button v-if="!isJobPathRunning()" :disabled="!serial.connected" @click="runJob()" class="b-success" style="font-size: 2em;padding: 0.5em 1em;"><i class="fa-solid fa-play"></i></button>
-                                <button v-if="isJobPathRunning()" :disabled="!serial.connected" @click="pauseJob()" class="b-warn" style="font-size: 2em;padding: 0.5em 1em;"><i class="fa-solid fa-pause"></i></button>
+                                <button v-if="!isJobPathRunning()" :disabled="!machine.isConnected()" @click="runJob()" class="b-success" style="font-size: 2em;padding: 0.5em 1em;"><i class="fa-solid fa-play"></i></button>
+                                <button v-if="isJobPathRunning()" :disabled="!machine.isConnected()" @click="pauseJob()" class="b-warn" style="font-size: 2em;padding: 0.5em 1em;"><i class="fa-solid fa-pause"></i></button>
                             </div>
                             <div style="position: relative;">
                                 <progress :max="job.contours.length" :value="job.currentIndex" style="width: 100%;height: 2.1em;"></progress>
@@ -291,8 +346,8 @@
                                     <div class="path-item-header">
                                         <div>{{index}}</div>
                                         <div>
-                                            <a v-if="serial.connected && !isJobPathRunning()" @click="runPath(index, false, true)" style="cursor:pointer;"><i class="fa-solid fa-play"></i></a>
-                                            <a v-if="serial.connected && isJobPathRunning() && path.status=='running'" @click="pauseJob()" style="cursor:pointer;"><i class="fa-solid fa-pause"></i></a>
+                                            <a v-if="machine.isConnected() && !isJobPathRunning()" @click="runPath(index, false, true)" style="cursor:pointer;"><i class="fa-solid fa-play"></i></a>
+                                            <a v-if="machine.isConnected() && isJobPathRunning() && path.status=='running'" @click="pauseJob()" style="cursor:pointer;"><i class="fa-solid fa-pause"></i></a>
                                         </div>
                                         <div>
                                             <span>{{(path.currentIndex * 100 / path.points.length).toFixed(0)}}% </span>
@@ -312,63 +367,67 @@
                 </div>
                 <div id="controls">
                     <!-- Serial-->
-                    <span v-if="!serial.webserialSupported">Serial port is not supported by your WEB browser.<br/> Usage of Chrome / Chromium is recommended.</span>
-                    <a v-if="serial.connected" @click="serial.disconnect()" style="position: absolute;top:0;right:0;cursor:pointer;text-decoration:underline;color:#2c3e50;">Disconnect</a>
-                    <div v-if="serial.webserialSupported" class="serial-container">
-                        <!--Port-->
-                        <button v-if="!serial.connected && !serial.webserial" class="b-primary" @click="serial.listPorts()">Select serial port</button>
-                        <button v-if="!serial.connected && serial.webserial" @click="serial.listPorts()">Change selection</button>
-                        <button v-if="!serial.connected && serial.webserial" class="b-primary" @click="serial.connect()">Connect</button>
-                        <!--Baud-->
-                        <!--<select v-if="!serial.connected && serial.webserial " v-model="serial.baudrate">
-                            <option value="300">300</option>
-                            <option value="1200">1200</option>
-                            <option value="2400">2400</option>
-                            <option value="4800">4800</option>
-                            <option value="9600">9600</option>
-                            <option value="19200">19200</option>
-                            <option value="38400">38400</option>
-                            <option value="57600">57600</option>
-                            <option value="74880">74880</option>
-                            <option value="115200">115200</option>
-                            <option value="230400">230400</option>
-                            <option value="460800">460800</option>
-                            <option value="576000">576000</option>
-                            <option value="921600">921600</option>
-                        </select>-->
+                    <div v-if="machine && machine.connectionType == 'SERIAL'">
+                        <span v-if="!machine.connection.supported">Serial port is not supported by your WEB browser.<br/> Usage of Chrome / Chromium is recommended.</span>
+                        <a v-if="machine.isConnected()" @click="machine.disconnect()" style="position: absolute;top:0;right:0;cursor:pointer;text-decoration:underline;color:#2c3e50;">Disconnect</a>
+                        <div v-if="machine.connection.supported" class="serial-container">
+                            <!--Port-->
+                            <button v-if="!machine.isConnected() && !machine.connection.configured" class="b-primary" @click="machine.connection.listPorts()">Select serial port</button>
+                            <button v-if="!machine.isConnected() && machine.connection.configured" @click="machine.connection.listPorts()">Change selection</button>
+                            <button v-if="!machine.isConnected() && machine.connection.configured" class="b-primary" @click="machine.connection.connect()">Connect</button>
+                            <!--Baud-->
+                            <!--<select v-if="!machine.isConnected() && machine.connection.configured " v-model="machine.connection.baudrate">
+                                <option value="300">300</option>
+                                <option value="1200">1200</option>
+                                <option value="2400">2400</option>
+                                <option value="4800">4800</option>
+                                <option value="9600">9600</option>
+                                <option value="19200">19200</option>
+                                <option value="38400">38400</option>
+                                <option value="57600">57600</option>
+                                <option value="74880">74880</option>
+                                <option value="115200">115200</option>
+                                <option value="230400">230400</option>
+                                <option value="460800">460800</option>
+                                <option value="576000">576000</option>
+                                <option value="921600">921600</option>
+                            </select>-->
+                        </div>
                     </div>
-                    <div v-if="serial.connected" style="display:flex;flex-direction:column; align-items:center; justify-content:center;">
+                    <div v-if="machine && machine.isConnected()" style="display:flex;flex-direction:column; align-items:center; justify-content:center;">
                         <!--Move buttons-->
                         <div style="display:flex;flex-direction:row;">
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="moveSpindleStep('X',-1,'Y',1)"><i class="fa fa-arrow-left" style="transform:rotate(45deg)"></i></button>
-                            <button @click="moveSpindleStep('X',-1)"><i class="fa fa-arrow-left"></i></button>
-                            <button @click="moveSpindleStep('X',-1,'Y',-1)"><i class="fa fa-arrow-left" style="transform:rotate(-45deg)"></i></button>
+                            <button @click="machine.moveSpindleStep('X',-1,'Y',1)"><i class="fa fa-arrow-left" style="transform:rotate(45deg)"></i></button>
+                            <button @click="machine.moveSpindleStep('X',-1)"><i class="fa fa-arrow-left"></i></button>
+                            <button @click="machine.moveSpindleStep('X',-1,'Y',-1)"><i class="fa fa-arrow-left" style="transform:rotate(-45deg)"></i></button>
                           </div>
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="moveSpindleStep('Y', 1)"><i class="fa fa-arrow-up"></i></button>
+                            <button @click="machine.moveSpindleStep('Y', 1)"><i class="fa fa-arrow-up"></i></button>
                             <button @click="emergencyStop()"><i class="fa fa-exclamation-triangle"></i></button>
-                            <button @click="moveSpindleStep('Y',-1)"><i class="fa fa-arrow-down"></i></button>
+                            <button @click="machine.moveSpindleStep('Y',-1)"><i class="fa fa-arrow-down"></i></button>
                           </div>
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="moveSpindleStep('X', 1,'Y',1)"><i class="fa fa-arrow-right" style="transform:rotate(-45deg)"></i></button>
-                            <button @click="moveSpindleStep('X', 1)"><i class="fa fa-arrow-right"></i></button>
-                            <button  @click="moveSpindleStep('X', 1,'Y',-1)"><i class="fa fa-arrow-right" style="transform:rotate(45deg)"></i></button>
+                            <button @click="machine.moveSpindleStep('X', 1,'Y',1)"><i class="fa fa-arrow-right" style="transform:rotate(-45deg)"></i></button>
+                            <button @click="machine.moveSpindleStep('X', 1)"><i class="fa fa-arrow-right"></i></button>
+                            <button  @click="machine.moveSpindleStep('X', 1,'Y',-1)"><i class="fa fa-arrow-right" style="transform:rotate(45deg)"></i></button>
                           </div>
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="moveSpindleStep('Z', 1)"><i class="fa fa-arrow-up"></i></button>
+                            <button @click="machine.moveSpindleStep('Z', 1)"><i class="fa fa-arrow-up"></i></button>
                             <div></div>
-                            <button @click="moveSpindleStep('Z', -1)"><i class="fa fa-arrow-down"></i></button>
+                            <button @click="machine.moveSpindleStep('Z', -1)"><i class="fa fa-arrow-down"></i></button>
                           </div>
                         </div>
-                        <button @click="startSpindle()"><i class="fa fa-play mr-2"></i>Start spindle</button>
-                        <button @click="stopSpindle()"><i class="fa fa-stop mr-2"></i>Stop spindle</button>
+                        <button @click="machine.startSpindle()"><i class="fa fa-play mr-2"></i>Start spindle</button>
+                        <button @click="machine.stopSpindle()"><i class="fa fa-stop mr-2"></i>Stop spindle</button>
                     </div>
                 </div>
             </div>
         </div>
     </body>
     <script src="./lib/SerialPort.js"></script>
+    <script src="./machines/Machine.js"></script>
+    <script src="./machines/Machine_CNC3018.js"></script>
     <script src="./main.js"></script>
     <script src="./lib/opencv.js"></script>
 
