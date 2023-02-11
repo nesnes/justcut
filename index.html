@@ -396,7 +396,7 @@
                     </div>
                     <div v-if="machine && machine.isConnected()" style="display:flex;flex-direction:column; align-items:center; justify-content:center;">
                         <!--Move buttons-->
-                        <div style="display:flex;flex-direction:row;width: 100%;">
+                        <div style="display:flex;flex-direction:row;justify-content:center;width: 100%;">
                           <div style="display:flex;flex-direction:column;">
                             <button class="button-machine-control" @click="machine.moveSpindleStep({x:-jogDistance, y:jogDistance}, jogFeedrate)"><i class="fa fa-arrow-left" style="transform:rotate(45deg)"></i></button>
                             <button class="button-machine-control" @click="machine.moveSpindleStep({x:-jogDistance}, jogFeedrate)"><i class="fa fa-arrow-left"></i></button>
