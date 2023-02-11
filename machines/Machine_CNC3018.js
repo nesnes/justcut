@@ -116,14 +116,14 @@ class Machine_CNC3018 extends Machine {
         return this.sendCommand("?");
     }
 
-    moveSpindleStep(axis, stepCount, secondAxis=null, secondStepCount=null){
+    moveSpindleStep(axes, feedRate){
         this.abortOnProbe = true;
-        if(axis == 'Z' && stepCount>0) this.abortOnProbe = false;
-        let stepSize = 10;
-        let feedRate = 100;
-        let cmd = "$J=G21G91"+axis+(stepCount*stepSize);
-        if(secondAxis && secondStepCount) cmd += secondAxis+(secondStepCount*stepSize);
-        cmd += "F"+feedRate;
+        if('z' in axes && axes.z>0) this.abortOnProbe = false; // So we can go up if touching the PCB
+        let cmd = "$J=G21G91";
+        if('x' in axes) cmd += `X${axes.x.toFixed(3)}`
+        if('y' in axes) cmd += `Y${axes.y.toFixed(3)}`
+        if('z' in axes) cmd += `Z${axes.z.toFixed(3)}`
+        cmd += "F"+feedRate.toFixed(3);
         return this.sendCommand(cmd);
     }
     

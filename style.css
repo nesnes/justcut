@@ -206,6 +206,7 @@ body {
     border-radius: 3px;
     padding: 2px 5px 2px 5px;
 	margin: 5px 1px 5px 1px;
+    min-width: 100px;
 }
 
 .input-group input {
@@ -213,6 +214,11 @@ body {
     border: 0px;
     font-size: 1.1em;
 	width: 100%;
+}
+.input-group input::-webkit-outer-spin-button,
+.input-group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .input-group input:focus-visible {
@@ -231,4 +237,10 @@ body {
     padding: 2px 5px 2px 5px;
     margin: 10px 10px;
     cursor: pointer;
+}
+
+.button-machine-control {
+    width: min(4em, 4vw);
+    height: min(4em, 4vw);
+    margin: 0.1vw;
 }

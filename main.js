@@ -8,20 +8,8 @@ var app = new Vue({
         machine: null,
         sourceUrl: null,
         sourceImg: null,
-        checklistIdx: -1,
-        checklist: [
-            { validated: false, id:"select-file", name:"Select image file" },
-            { validated: false, id:"compute-path", name:"Compute tool paths" },
-            { validated: false, id:"install-martyr", name:"Intall martyr" },
-            { validated: false, id:"install-pcb", name:"Install PCB" },
-            { validated: false, id:"install-tool", name:"Install tool" },
-            { validated: false, id:"install-probe", name:"Install probe wires" },
-            { validated: false, id:"power-on", name:"Power ON the machine" },
-            { validated: false, id:"home-x-y", name:"Move to X/Y home position" },
-            { validated: false, id:"probe-surface", name:"Probe surface" },
-            { validated: false, id:"remove-probe", name:"Remove probe wires" },
-            { validated: false, id:"run-job", name:"Run the job", onload:()=>{setTimeout(app.generateJobThumbnails, 50)} }
-        ],
+        jogFeedrate: 10, //mm/s
+        jogDistance: 10, //mm
         tool: {
             previewWidth: 100,//px
             diameter: 3.175,//mm
@@ -375,6 +363,24 @@ var app = new Vue({
             this.job.stopRunningPath = null;
             if(this.job.stopRunningJob) this.job.stopRunningJob();
             this.job.stopRunningJob = null;
+        },
+        updateNum: function(value, dir){
+            const steps=[ // you can judge me, I was lazy
+                0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
+                0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
+                0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,
+                1, 2, 3, 4, 5, 6, 7, 8, 9,
+                10, 20, 30, 40, 50, 60, 70, 80, 90,
+                100, 200, 300, 400, 500, 600, 700, 800, 900,
+                1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000,
+                10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000,
+                100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000
+            ]
+            let idx = steps.findIndex((e)=>e==value);
+            if(idx > 0 && idx < steps.length-1) {
+                return steps[idx+dir]
+            }
+            return value;
         }
 
     }

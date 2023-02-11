@@ -396,30 +396,53 @@
                     </div>
                     <div v-if="machine && machine.isConnected()" style="display:flex;flex-direction:column; align-items:center; justify-content:center;">
                         <!--Move buttons-->
-                        <div style="display:flex;flex-direction:row;">
+                        <div style="display:flex;flex-direction:row;width: 100%;">
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="machine.moveSpindleStep('X',-1,'Y',1)"><i class="fa fa-arrow-left" style="transform:rotate(45deg)"></i></button>
-                            <button @click="machine.moveSpindleStep('X',-1)"><i class="fa fa-arrow-left"></i></button>
-                            <button @click="machine.moveSpindleStep('X',-1,'Y',-1)"><i class="fa fa-arrow-left" style="transform:rotate(-45deg)"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({x:-jogDistance, y:jogDistance}, jogFeedrate)"><i class="fa fa-arrow-left" style="transform:rotate(45deg)"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({x:-jogDistance}, jogFeedrate)"><i class="fa fa-arrow-left"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({x:-jogDistance, y:-jogDistance}, jogFeedrate)"><i class="fa fa-arrow-left" style="transform:rotate(-45deg)"></i></button>
                           </div>
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="machine.moveSpindleStep('Y', 1)"><i class="fa fa-arrow-up"></i></button>
-                            <button @click="emergencyStop()"><i class="fa fa-exclamation-triangle"></i></button>
-                            <button @click="machine.moveSpindleStep('Y',-1)"><i class="fa fa-arrow-down"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({y:jogDistance}, jogFeedrate)"><i class="fa fa-arrow-up"></i></button>
+                            <button class="button-machine-control b-warn" @click="emergencyStop()"><i class="fa fa-exclamation-triangle"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({y:-jogDistance}, jogFeedrate)"><i class="fa fa-arrow-down"></i></button>
                           </div>
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="machine.moveSpindleStep('X', 1,'Y',1)"><i class="fa fa-arrow-right" style="transform:rotate(-45deg)"></i></button>
-                            <button @click="machine.moveSpindleStep('X', 1)"><i class="fa fa-arrow-right"></i></button>
-                            <button  @click="machine.moveSpindleStep('X', 1,'Y',-1)"><i class="fa fa-arrow-right" style="transform:rotate(45deg)"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({x:jogDistance, y:jogDistance}, jogFeedrate)"><i class="fa fa-arrow-right" style="transform:rotate(-45deg)"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({x:jogDistance}, jogFeedrate)"><i class="fa fa-arrow-right"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({x:jogDistance, y:-jogDistance}, jogFeedrate)"><i class="fa fa-arrow-right" style="transform:rotate(45deg)"></i></button>
                           </div>
+                          <div style="width: min(4em, 5vw);"></div>
                           <div style="display:flex;flex-direction:column;">
-                            <button @click="machine.moveSpindleStep('Z', 1)"><i class="fa fa-arrow-up"></i></button>
-                            <div></div>
-                            <button @click="machine.moveSpindleStep('Z', -1)"><i class="fa fa-arrow-down"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({z:jogDistance}, jogFeedrate)"><i class="fa fa-arrow-up"></i></button>
+                            <button class="button-machine-control b-warn" @click="emergencyStop()"><i class="fa fa-exclamation-triangle"></i></button>
+                            <button class="button-machine-control" @click="machine.moveSpindleStep({z:-jogDistance}, jogFeedrate)"><i class="fa fa-arrow-down"></i></button>
                           </div>
                         </div>
-                        <button @click="machine.startSpindle()"><i class="fa fa-play mr-2"></i>Start spindle</button>
-                        <button @click="machine.stopSpindle()"><i class="fa fa-stop mr-2"></i>Stop spindle</button>
+                        <!--Move speed-->
+                        <div style="display: flex;flex-direction:row;justify-content:space-around;flex-wrap:wrap;width:100%;">
+                            <div class="input-group" style="flex:1">
+                                <span>Speed (mm/s)</span>
+                                <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;">
+                                    <button @click="jogFeedrate = updateNum(jogFeedrate, -1)" class="b-input"><i class="fa-solid fa-minus"></i></button>
+                                    <input type="number" v-model.number="jogFeedrate" style="text-align:center;" aria-label="Speed in millimeters per second">
+                                    <button @click="jogFeedrate = updateNum(jogFeedrate, 1)" class="b-input"><i class="fa-solid fa-plus"></i></button>
+                                </div>
+                            </div>
+                            <div class="input-group" style="flex:1">
+                                <span>Distance (mm)</span>
+                                <div style="display:flex;flex-direction:row;">
+                                    <button @click="jogDistance = updateNum(jogDistance, -1)" class="b-input"><i class="fa-solid fa-minus"></i></button>
+                                    <input type="number" v-model.number="jogDistance" style="text-align:center;" aria-label="Distance in millimeters">
+                                    <button @click="jogDistance = updateNum(jogDistance, 1)" class="b-input"><i class="fa-solid fa-plus"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Spindle -->
+                        <div style="display: flex;flex-direction:row;justify-content:space-around;flex-wrap:wrap;width:100%;">
+                            <button @click="machine.startSpindle()" class="" style="padding:1em;"><i class="fa fa-play mr-2"></i>Start spindle</button>
+                            <button @click="machine.stopSpindle()"  class="b-fail" style="padding:1em;"><i class="fa fa-stop mr-2"></i>Stop spindle</button>
+                        </div>
                     </div>
                 </div>
             </div>
